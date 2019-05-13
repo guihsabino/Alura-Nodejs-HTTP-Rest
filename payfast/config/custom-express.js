@@ -1,6 +1,7 @@
 var express = require('express');
 var consign = require('consign');
 var bodyParser = require('body-parser');
+var expressValidator = require('express-validator');
 
 module.exports = function () {
     var app = express();
@@ -8,9 +9,12 @@ module.exports = function () {
     app.use(bodyParser.urlencoded({ extended: true }));
     app.use(bodyParser.json());
 
+    app.use(expressValidator());
+
     // Define o que deve ser inserido na variável app
     consign()
         .include('controllers')
+        .then('persistencia')
         .into(app);
 
     return app;
