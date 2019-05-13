@@ -25,7 +25,7 @@ module.exports = function (app) {
         console.log('processando uma requisiçao de um novo pagamento');
 
         pagamento.status = 'Criado!';
-        pagamento.data = new Date;
+        pagamento.data = new Date();
 
         var connection = app.persistencia.connectionFactory();
         var pagamentoDao = new app.persistencia.PagamentoDao(connection);
@@ -33,10 +33,12 @@ module.exports = function (app) {
         pagamentoDao.salva(pagamento, function (erro, resultado) {
             if (erro) {
                 console.log('erro ao inserir no banco: ' + erro);
-                resp.status(400).send(erro);
+                resp.status(500).send(erro);
             } else {
                 console.log('pagamento criado com sucesso!');
-                resp.json(pagamento);
+                resp.location('/pagamentos/pagamento/' + resultado.insertId);
+
+                resp.status(201).json(pagamento);
             }
         });
     });
