@@ -5,8 +5,48 @@ module.exports = function (app) {
         resp.send('OK!')
     });
 
-    app.post('/pagamentos/pagamento', function (req, resp) {
 
+    app.delete('/pagamentos/pagamento/:id', function (req, resp) {
+        var pagamento = {};
+        var id = req.params.id;
+
+        pagamento.id = id;
+        pagamento.status = 'CANCELADO';
+
+        var connection = app.persistencia.connectionFactory();
+        var pagamentoDao = new app.persistencia.PagamentoDao(connection);
+
+        pagamentoDao.atualiza(pagamento, function (erro) {
+            if (erro) {
+                resp.status(500).send(erro);
+                return;
+            }
+            console.log('Pagamento Cancelado!');
+            resp.status(204).send(pagamento);
+        });
+    });
+
+    app.put('/pagamentos/pagamento/:id', function (req, resp) {
+        var pagamento = {};
+        var id = req.params.id;
+
+        pagamento.id = id;
+        pagamento.status = 'CONFIRMADO';
+
+        var connection = app.persistencia.connectionFactory();
+        var pagamentoDao = new app.persistencia.PagamentoDao(connection);
+
+        pagamentoDao.atualiza(pagamento, function (erro) {
+            if (erro) {
+                resp.status(500).send(erro);
+                return;
+            }
+            console.log('Pagamento Confirmado!');
+            resp.send(pagamento);
+        });
+    });
+
+    app.post('/pagamentos/pagamento', function (req, resp) {
 
         req.assert("forma_de_pagamento", "Forma de pagamento é obrigatória!").notEmpty();
         req.assert("valor", "Valor é obrigatório, e deve ser um decimal!").notEmpty().isFloat();
