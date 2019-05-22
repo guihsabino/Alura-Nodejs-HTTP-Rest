@@ -75,10 +75,30 @@ module.exports = function (app) {
                 console.log('erro ao inserir no banco: ' + erro);
                 resp.status(500).send(erro);
             } else {
+                pagamento.id = resultado.insertId;
                 console.log('pagamento criado com sucesso!');
-                resp.location('/pagamentos/pagamento/' + resultado.insertId);
+                resp.location('/pagamentos/pagamento/' + pagamento.id);
 
-                resp.status(201).json(pagamento);
+                // Definindo o que pode ser feito após a criação do pagamento
+                var response = {
+                    dados_do_pagamento: pagamento,
+                    links: [
+                        {
+                            href: "http://localhost:3000/pagamentos/pagamento/"
+                                + pagamento.id,
+                            rel: "CONFIRMAR",
+                            method: "PUT"
+                        },
+                        {
+                            href: "http://localhost:3000/pagamentos/pagamento/"
+                                + pagamento.id,
+                            rel: "CANCELAR",
+                            method: "DELETE"
+                        }
+                    ]
+                }
+
+                resp.status(201).json(response);
             }
         });
     });
