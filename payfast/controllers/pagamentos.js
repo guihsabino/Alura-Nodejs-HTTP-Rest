@@ -4,6 +4,38 @@ module.exports = function (app) {
         resp.send('OK!')
     });
 
+    app.get('/pagamentos/pagamento/:id', function (req, resp) {
+        var id = req.params.id;
+        console.log('Consultando pagamento: ' + id);
+
+        var memcachedClient = app.servicos.memcachedClient();
+
+        memcachedClient.get('pagamento-' + id, function (erro, retorno) {
+            if (erro || !retorno) {
+                console.log('MISS - chave nao encontrada');
+
+                var connection = app.persistencia.connectionFactory();
+                var pagamentoDao = new app.persistencia.PagamentoDao(connection);
+
+                pagamentoDao.buscaPorId(id, function (erro, resultado) {
+                    if (erro) {
+                        console.log('erro ao consultar no banco: ' + erro);
+                        resp.status(500).send(erro);
+                        return;
+                    }
+                    console.log('pagamento encontrado: ' + JSON.stringify(resultado));
+                    resp.json(resultado);
+                    return;
+                });
+                //HIT no cache
+            } else {
+                console.log('HIT - valor: ' + JSON.stringify(retorno));
+                resp.json(retorno);
+                return;
+            }
+        });
+
+    });
 
     app.delete('/pagamentos/pagamento/:id', function (req, resp) {
         var pagamento = {};
@@ -47,12 +79,11 @@ module.exports = function (app) {
 
     app.post('/pagamentos/pagamento', function (req, resp) {
 
-        var body = req.body;
-        var pagamento = body['pagamento'];
-
-        req.assert("pagamento.forma_de_pagamento", "Forma de pagamento é obrigatória.").notEmpty();
-        req.assert("pagamento.valor", "Valor é obrigatório e deve ser um decimal.").notEmpty().isFloat();
-        req.assert("pagamento.moeda", "Moeda é obrigatória e deve ter 3 caracteres").notEmpty().len(3, 3);
+        req.assert("pagamento.forma_de_pagamento",
+            "Forma de pagamento eh obrigatorio").notEmpty();
+        req.assert("pagamento.valor",
+            "Valor eh obrigatorio e deve ser um decimal")
+            .notEmpty().isFloat();
 
         // Pedindo pro request mostrar quais os erros de validação que ele encontrou
         var erros = req.validationErrors();
@@ -64,8 +95,8 @@ module.exports = function (app) {
         }
 
         // Enviando corpo da requisição
-        var pagamento = req.body;
-        console.log('processando uma requisiçao de um novo pagamento');
+        var pagamento = req.body["pagamento"];
+        console.log('processando uma requisicao de um novo pagamento');
 
         pagamento.status = 'Criado!';
         pagamento.data = new Date();
@@ -80,7 +111,11 @@ module.exports = function (app) {
             } else {
                 pagamento.id = resultado.insertId;
                 console.log('pagamento criado com sucesso!');
-                resp.location('/pagamentos/pagamento/' + pagamento.id);
+
+                var memcachedClient = app.servicos.memcachedClient();
+                memcachedClient.set('pagamento-' + pagamento.id, pagamento, 6000, function (erro) {
+                    console.log("Nova chave adicionada ao cache: pagamento-" + pagamento.id);
+                });
 
                 if (pagamento.forma_de_pagamento == 'cartao') {
                     var cartao = req.body["cartao"];
@@ -92,12 +127,12 @@ module.exports = function (app) {
                         function (exception, request, response, retorno) {
                             if (exception) {
                                 console.log(exception);
-                                res.status(400).send(exception);
+                                resp.status(400).send(exception);
                                 return;
                             }
                             console.log(retorno);
 
-                            res.location('/pagamentos/pagamento/' +
+                            resp.location('/pagamentos/pagamento/' +
                                 pagamento.id);
 
                             // Definindo o que pode ser feito após a criação do pagamento
@@ -120,13 +155,13 @@ module.exports = function (app) {
                                 ]
                             }
 
-                            res.status(201).json(response);
+                            resp.status(201).json(response);
                             return;
                         });
 
 
                 } else {
-                    res.location('/pagamentos/pagamento/' +
+                    resp.location('/pagamentos/pagamento/' +
                         pagamento.id);
 
                     var response = {
@@ -147,7 +182,7 @@ module.exports = function (app) {
                         ]
                     }
 
-                    res.status(201).json(response);
+                    resp.status(201).json(response);
                 }
             }
         });
